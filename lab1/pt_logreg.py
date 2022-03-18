@@ -34,13 +34,13 @@ class PTLogreg(nn.Module):
         return probs
     
 
-    def get_loss(self, X, Yoh_):
+    def get_loss(self, X, Y_):
         # formulacija gubitka
         #   koristiti: torch.log, torch.mean, torch.sum
         # ...
         Y = self.forward(X)
         
-        log_loss = torch.log(Y + 1e-13) * Yoh_ # dodajemo jako mali broj da izbjegnemo log(0)
+        log_loss = torch.log(Y + 1e-13) * Y_ # dodajemo jako mali broj da izbjegnemo log(0)
         loss_sum = torch.sum(log_loss, dim=1)
         loss_mean = torch.mean(loss_sum)
         
