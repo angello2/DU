@@ -25,8 +25,7 @@ class PTDeep(nn.Module):
             B.append(b_i)
         
         self.W = nn.ParameterList(W)
-        self.B = nn.ParameterList(B)
-        
+        self.B = nn.ParameterList(B)        
         self.activation_function = activation
         
     def forward(self, X):
@@ -35,21 +34,16 @@ class PTDeep(nn.Module):
             h = h.mm(w) + b
             
             if self.activation_function is not None:
-                h = self.activation_function(h)
-                
+                h = self.activation_function(h)      
         return torch.softmax(h, dim=1)
         
-    def get_loss(self, X, Y_):
-        Y = self.forward(X)
-        log_loss = - torch.log(Y) * Y_
-        loss_sum = torch.sum(log_loss, dim=1)
-        loss_mean = torch.mean(loss_sum)
-        
-        return loss_mean
-        
+    def get_loss(self, X, Y_):        
+        loss = -torch.log(self.forward(X) + Y_)
+        return torch.mean(torch.sum(loss, dim=1))
+
     def evaluate(model, X):
         return np.argmax(model.forward(X).detach().numpy(), axis=1)
-        
+    
     def train(model, X, Y_, param_niter, param_delta, param_lambda=0):
         opt = torch.optim.SGD(params=model.parameters(), lr=param_delta)
         
@@ -71,7 +65,7 @@ class PTDeep(nn.Module):
 
 np.random.seed(100)
 
-X,Y_ = data.sample_gmm_2d(4, 2, 10)
+X,Y_ = data.sample_gmm_2d(6, 2, 10)
 Yoh_ = data.class_to_onehot(Y_)
 
 def activation(X):
@@ -79,13 +73,13 @@ def activation(X):
 
 
 # definiraj model:
-parameter_list = [2,2]
+parameter_list = [2,10,10,2]
 ptd = PTDeep(parameter_list, activation)
 
 X = torch.from_numpy(X)
 Yoh_ = torch.from_numpy(Yoh_)
 
-ptd.train(X, Yoh_, 3000, 0.1)
+ptd.train(X, Yoh_, 10000, 0.1)
 
 # dohvati vjerojatnosti na skupu za učenje
 probs = ptd.evaluate(X)

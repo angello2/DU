@@ -37,14 +37,10 @@ class PTLogreg(nn.Module):
     def get_loss(self, X, Y_):
         # formulacija gubitka
         #   koristiti: torch.log, torch.mean, torch.sum
-        # ...
-        Y = self.forward(X)
+        # ...        
+        loss = - torch.log(self.forward(X)) * Y_ 
         
-        log_loss = torch.log(Y + 1e-13) * Y_ # dodajemo jako mali broj da izbjegnemo log(0)
-        loss_sum = torch.sum(log_loss, dim=1)
-        loss_mean = torch.mean(loss_sum)
-        
-        return -1 * loss_mean        
+        return torch.mean(torch.sum(loss, dim=1))      
 
     def train(model, X, Yoh_, param_niter, param_delta, param_lambda=0):
         """Arguments:
