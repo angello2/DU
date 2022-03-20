@@ -29,7 +29,7 @@ for i in range(100):
     diff = (Y-Y_)
 
     # srednji kvadratni gubitak - osiguran rad neovisno o broju ulaznih tocaka
-    loss = torch.mean(diff**2) 
+    loss = torch.mean(diff**2)
 
     # računanje gradijenata
     loss.backward()

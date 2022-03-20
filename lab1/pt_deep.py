@@ -10,16 +10,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch import nn
 
-class PTDeep(nn.Module):
+class PTDeep(nn.Module):    
     def __init__(self, parameter_list, activation=None):
-        super().__init__()
+        super().__init__()       
+        self.cuda = torch.device('cuda')
         W=[]
         B=[]
         
         i = 0
         while i < len(parameter_list) - 1:
-            w_i = nn.Parameter(torch.randn((parameter_list[i], parameter_list[i+1]), requires_grad=True, dtype=torch.float64))
-            b_i = nn.Parameter(torch.zeros((1, parameter_list[i+1]), requires_grad=True, dtype=torch.float64))
+            w_i = nn.Parameter(torch.tensor(np.random.randn(parameter_list[i], parameter_list[i+1]), requires_grad=True, dtype=torch.float64, device=self.cuda))
+            b_i = nn.Parameter(torch.zeros((1, parameter_list[i+1]), requires_grad=True, dtype=torch.float64, device=self.cuda))
             i += 1
             W.append(w_i)
             B.append(b_i)
@@ -29,66 +30,43 @@ class PTDeep(nn.Module):
         self.activation_function = activation
         
     def forward(self, X):
-        X = torch.tensor(X, dtype=torch.float64, requires_grad=False)
+        X = torch.tensor(X, device=self.cuda)
+        i = 0
         for w, b in zip(self.W, self.B):
             X = X.mm(w) + b
-            
             if self.activation_function is not None:
-                X = self.activation_function(X)    
-        
-        return torch.softmax(X, dim=1)
+                if i < len(self.W) - 1:
+                    X = self.activation_function(X)    
+            i += 1
+            
+        probs = torch.softmax(X, dim=1).cuda()
+        return probs
         
     def get_loss(self, X, Y_):
-        Y_ = torch.tensor(Y_, dtype=torch.float64, requires_grad=False)        
-        loss = -torch.log(self.forward(X)) * Y_
-        return torch.mean(torch.sum(loss, dim=1))
+        Y = self.forward(X)
+        Yoh_ = torch.tensor(data.class_to_onehot(Y_), device=self.cuda)  
+        loss = -torch.log(Y) * Yoh_
+        loss_sum = torch.sum(loss, dim=1)
+        loss_sum_mean = torch.mean(loss_sum)
+        return loss_sum_mean
 
     def evaluate(model, X):
-        return np.argmax(model.forward(X).detach().numpy(), axis=1)
+        return np.argmax(model.forward(X).detach().cpu().numpy(), axis=1)
     
-    def train(model, X, Y_, param_niter, param_delta, param_lambda=0):
+    def train(model, X, Y_, param_niter, param_delta):
         opt = torch.optim.SGD(params=model.parameters(), lr=param_delta)
-        
         for i in range(param_niter):
-            opt.zero_grad()
+            Y = model.forward(X)
             loss = model.get_loss(X, Y_)
             loss.backward()
+                
             opt.step()
             if(i%100==0):
                 print("iter: ", i, " loss: ", loss)
-        
+            opt.zero_grad()
     
     def count_parameters(self):
         sum = 0
         for parameter in self.named_parameters():
             sum += parameter[1].data.size(dim=0) * parameter[1].data.size(dim=1)
         return sum
-
-
-np.random.seed(100)
-
-X,Y_ = data.sample_gmm_2d(6, 2, 10)
-Yoh_ = data.class_to_onehot(Y_)
-
-def activation(X):
-    return torch.relu(X)
-
-# definiraj model:
-parameter_list = [2,5,2]
-ptd = PTDeep(parameter_list, activation)
-
-ptd.train(X, Yoh_, 10000, 0.1)
-
-# dohvati vjerojatnosti na skupu za učenje
-probs = ptd.evaluate(X)
-
-# ispiši performansu (preciznost i odziv po razredima)
-accuracy, precision, recall = data.eval_perf_binary(probs, Y_)
-print("Accuracy: ", accuracy, "Precision: ", precision, "Recall:", recall)
-
-
-# iscrtaj rezultate, decizijsku plohu
-rect = (np.min(X, axis=0), np.max(X, axis=0))
-data.graph_surface(lambda X: ptd.evaluate(X), rect)
-data.graph_data(X, Y_, probs)
-plt.show()

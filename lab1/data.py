@@ -196,7 +196,3 @@ def sample_gmm_2d(ncomponents, nclasses, nsamples):
   
     return X,Y_
 
-def myDummyDecision(X):
-    scores = X[:,0] + X[:,1] - 5
-    return scores
-

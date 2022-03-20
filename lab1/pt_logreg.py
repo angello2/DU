@@ -8,8 +8,6 @@ Created on Mon Mar 14 19:50:25 2022
 import data
 import torch
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 from torch import nn
 
 class PTLogreg(nn.Module):    
@@ -22,8 +20,8 @@ class PTLogreg(nn.Module):
         # imena mogu biti self.W, self.b
         # ...
         super().__init__()
-        self.W = nn.Parameter(torch.randn((D, C)), requires_grad=True)
-        self.b = nn.Parameter(torch.randn(C), requires_grad=True)
+        self.W = nn.Parameter(torch.randn((D, C), dtype=torch.float64), requires_grad=True)
+        self.b = nn.Parameter(torch.randn(C, dtype=torch.float64), requires_grad=True)
 
     def forward(self, X):
         # unaprijedni prolaz modela: izračunati vjerojatnosti
@@ -34,12 +32,12 @@ class PTLogreg(nn.Module):
         return probs
     
 
-    def get_loss(self, X, Y_):
+    def get_loss(self, X, Yoh_):
         # formulacija gubitka
         #   koristiti: torch.log, torch.mean, torch.sum
         # ...        
-        loss = - torch.log(self.forward(X)) * Y_ 
-        
+        Y = self.forward(X)
+        loss = - torch.log(Y) * Yoh_        
         return torch.mean(torch.sum(loss, dim=1))      
 
     def train(model, X, Yoh_, param_niter, param_delta, param_lambda=0):
@@ -50,7 +48,7 @@ class PTLogreg(nn.Module):
             - param_delta: learning rate
             - param_lambda: regularization factor
         """
-  
+        
         # inicijalizacija optimizatora
         # ...
         opt = torch.optim.SGD(params=model.parameters(), lr = param_delta)
@@ -76,7 +74,7 @@ class PTLogreg(nn.Module):
         # ulaz je potrebno pretvoriti u torch.Tensor
         # izlaze je potrebno pretvoriti u numpy.array
         # koristite torch.Tensor.detach() i torch.Tensor.numpy()
-        X = torch.tensor(X).float()
+        X = torch.tensor(X, dtype=torch.float64)
         Y = model.forward(X).detach().numpy()
         return np.argmax(Y, axis=1)
     

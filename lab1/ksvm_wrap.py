@@ -36,7 +36,10 @@ class KSVMWrap():
         precision = tp / (tp + fp)
         accuracy = (tp + tn) / (tp+fn + tn+fp)
         return accuracy, recall, precision
-
+    
+    def support_indices(self):
+        return self.clf.support_
+    
 np.random.seed(100)
 X, Y_ = data.sample_gmm_2d(6,2,10)
 model = KSVMWrap(X,Y_)

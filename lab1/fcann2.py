@@ -8,10 +8,6 @@ import data
 import numpy as np
 import matplotlib.pyplot as plt
 
-param_niter = 1e5
-param_delta = 0.05
-param_lambda = 1e-3
-
 class FCANN2():
     def __init__(self, D, N, C):
         # D = dimenzija ulaznih podataka
@@ -24,9 +20,9 @@ class FCANN2():
         
         
     def forward(self, X):
-        s1 = np.matmul(X, model.W1) + model.b1
+        s1 = np.matmul(X, self.W1) + self.b1
         h1 = np.maximum(0., s1)
-        s2 = np.matmul(h1, model.W2) + model.b2
+        s2 = np.matmul(h1, self.W2) + self.b2
         
         P = softmax(s2)
         return P  
@@ -53,6 +49,7 @@ class FCANN2():
     
             # loss
             loss = model.get_loss(P, Y_)
+            
             if i % 100 == 0:
                 print("Iter: ", i, "loss:", loss)            
             
@@ -75,7 +72,7 @@ class FCANN2():
             model.W1 += - param_delta * dW1
             model.b1 += - param_delta * db1
             model.W2 += - param_delta * dW2
-            model.b2 += - param_delta * db2
+            model.b2 += - param_delta * db2            
             
     def classify(model, X):
         return np.argmax(model.forward(X), axis=1)        
@@ -84,22 +81,5 @@ def softmax(X):
     exp = np.exp(X)
     exp_sum = np.sum(exp, axis=1)[:,np.newaxis]
     return exp / exp_sum
-        
-np.random.seed(100)
-X, Y_ = data.sample_gmm_2d(6, 2, 10)
-model = FCANN2(2, 5, 2)
-model.train(X,Y_, 10000, 0.1)
-
-probs = model.forward(X)
-
-# ispiši performansu (preciznost i odziv po razredima)
-accuracy, recall, precision = data.eval_perf_binary(np.argmax(probs, axis=1), Y_)
-print("Accuracy: ", accuracy, "Precision: ", precision, "Recall: ", recall)
-
-# iscrtaj rezultate, decizijsku plohu
-rect= (np.min(X, axis=0), np.max(X, axis=0))
-data.graph_surface(lambda X: model.classify(X), rect)
-data.graph_data(X, Y_, np.argmax(probs, axis=1))
-plt.show()
 
 
