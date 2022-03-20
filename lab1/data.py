@@ -85,7 +85,7 @@ def graph_data(X,Y_, Y, special=[]):
         None
     """
     # colors of the datapoint markers
-    palette=([0.4,0.4,0.4], [0,0,0], [1.0,0.0,0.0])
+    palette=([0.4,0.4,0.4], [0,0,0], [1.0, 0.0, 0.0])
     colors = np.tile([0.0,0.0,0.0], (Y_.shape[0],1))
     for i in range(len(palette)):
         colors[Y_==i] = palette[i]

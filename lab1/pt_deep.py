@@ -20,7 +20,7 @@ class PTDeep(nn.Module):
         while i < len(parameter_list) - 1:
             w_i = nn.Parameter(torch.randn((parameter_list[i], parameter_list[i+1]), requires_grad=True, dtype=torch.float64))
             b_i = nn.Parameter(torch.zeros((1, parameter_list[i+1]), requires_grad=True, dtype=torch.float64))
-            i = i + 1
+            i += 1
             W.append(w_i)
             B.append(b_i)
         
@@ -29,16 +29,18 @@ class PTDeep(nn.Module):
         self.activation_function = activation
         
     def forward(self, X):
-        h = torch.tensor(X, dtype=torch.float64, requires_grad=False)
+        X = torch.tensor(X, dtype=torch.float64, requires_grad=False)
         for w, b in zip(self.W, self.B):
-            h = h.mm(w) + b
+            X = X.mm(w) + b
             
             if self.activation_function is not None:
-                h = self.activation_function(h)      
-        return torch.softmax(h, dim=1)
+                X = self.activation_function(X)    
         
-    def get_loss(self, X, Y_):        
-        loss = -torch.log(self.forward(X) + Y_)
+        return torch.softmax(X, dim=1)
+        
+    def get_loss(self, X, Y_):
+        Y_ = torch.tensor(Y_, dtype=torch.float64, requires_grad=False)        
+        loss = -torch.log(self.forward(X)) * Y_
         return torch.mean(torch.sum(loss, dim=1))
 
     def evaluate(model, X):
@@ -71,13 +73,9 @@ Yoh_ = data.class_to_onehot(Y_)
 def activation(X):
     return torch.relu(X)
 
-
 # definiraj model:
-parameter_list = [2,10,10,2]
+parameter_list = [2,5,2]
 ptd = PTDeep(parameter_list, activation)
-
-X = torch.from_numpy(X)
-Yoh_ = torch.from_numpy(Yoh_)
 
 ptd.train(X, Yoh_, 10000, 0.1)
 
@@ -85,14 +83,12 @@ ptd.train(X, Yoh_, 10000, 0.1)
 probs = ptd.evaluate(X)
 
 # ispiši performansu (preciznost i odziv po razredima)
-accuracy, pr, M = data.eval_perf_multi(probs, Y_)
-print("Accuracy: ", accuracy)
-for i in range(2):
-    print("Precision & recall for class", i, ": ", pr[i])
+accuracy, precision, recall = data.eval_perf_binary(probs, Y_)
+print("Accuracy: ", accuracy, "Precision: ", precision, "Recall:", recall)
 
 
 # iscrtaj rezultate, decizijsku plohu
-rect = (np.min(X.numpy(), axis=0), np.max(X.numpy(), axis=0))
+rect = (np.min(X, axis=0), np.max(X, axis=0))
 data.graph_surface(lambda X: ptd.evaluate(X), rect)
 data.graph_data(X, Y_, probs)
 plt.show()

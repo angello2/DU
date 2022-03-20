@@ -6,6 +6,7 @@ Created on Mon Mar 14 15:49:06 2022
 """
 import data
 import numpy as np
+import matplotlib.pyplot as plt
 
 param_niter = 1e5
 param_delta = 0.05
@@ -16,60 +17,89 @@ class FCANN2():
         # D = dimenzija ulaznih podataka
         # N = velicina skrivenog sloja
         # C = broj klasa na izlazu
-        self.w_0 = np.random.randn(D, N)
-        self.b_0 = np.zeros((1, N))
-        self.w_1 = np.random.randn(N, C)
-        self.b_1 = np.zeros((1, C))
+        self.W1 = np.random.randn(D, N)
+        self.b1 = np.zeros((1, N))
+        self.W2 = np.random.randn(N, C)
+        self.b2 = np.zeros((1, C))
         
         
     def forward(self, X):
-        # ulazni sloj
-        h_1 = np.matmul(X, self.w_0) + self.b_0
-        relu_1 = np.maximum(0., h_1)
-
-        # skriveni sloj
-        h_2 = np.matmul(relu_1, self.w_1) + self.b_1
-        exp_2 = np.exp(h_2)
-        exp_sum_2 = np.sum(exp_2, axis=1)[:,np.newaxis]
+        s1 = np.matmul(X, model.W1) + model.b1
+        h1 = np.maximum(0., s1)
+        s2 = np.matmul(h1, model.W2) + model.b2
         
-        # izlaz
-        probs = exp_2 / exp_sum_2
-        return probs  
+        P = softmax(s2)
+        return P  
     
     def get_loss(self, Y, Y_):
         # cross entropy loss
         Y_ = data.class_to_onehot(Y_)
-        loss = -np.log(Y)
+        loss = -np.log(Y) * Y_
         loss_sum = np.sum(loss, axis=1)
-        return np.mean(loss_sum)   
+        return np.mean(loss_sum)
 
     def train(model, X, Y_, param_niter, param_delta):
         for i in range(param_niter):
+            # C = dimenzija ulaza H = velicina skrivenog sloja C = broj klasa N = broj primjera
+            # forward pass -> ne koristimo funkciju forward() jer trebamo medurezultate
+            s1 = np.matmul(X, model.W1) + model.b1
+            s1 = X @ model.W1 + model.b1
+            h1 = np.maximum(0, s1)
+            s2 = np.matmul(h1, model.W2) + model.b2          
+            P = softmax(s2)
             
-            # forward
-            h_1 = np.matmul(X, model.w_0) + model.b_0
-            relu_1 = np.maximum(0., h_1)
-            h_2 = np.matmul(relu_1, model.w_1) + model.b_1
-            exp_2 = np.exp(h_2)
-            exp_sum_2 = np.sum(exp_2, axis=1)[:,np.newaxis]
-            probs = exp_2 / exp_sum_2
+            # Yoh_ je vektorski prikaz klase
+            Yoh_ = data.class_to_onehot(Y_)
     
             # loss
-            Yoh_ = data.class_to_onehot(Y_)
-            loss = model.get_loss(probs, Y_)
-            print("Iter: ", i, "loss:", loss)
+            loss = model.get_loss(P, Y_)
+            if i % 100 == 0:
+                print("Iter: ", i, "loss:", loss)            
             
-            # gradijenti drugog sloja
-            dw_1 = np.matmul(relu_1.T, (probs- Yoh_))
-            db_1 = np.sum((probs - Yoh_), axis=0)
+            # dL/dy
+            dy = (P-Yoh_) / len(X)
             
+            # gradijenti dL/dW2 i dL/db2
+            dW2 = np.matmul(h1.T, dy)
+            db2 = np.sum(dy, axis=0)
             
+            # gradijent dL/ds1
+            ds1 = np.matmul(dy, model.W2.T)
+            ds1[h1 <= 0.0] = 0.0
             
-            dw_0 = np.matmul((probs - Yoh_), w_1)
-            print("w_1:\n", model.w_1)
-            print("dw_1:\n",dw_1)
-            print("b_1:\n", model.b_1)
-            print("db_1:\n",db_1)
+            # gradijenti dL/dW1 i dL/db1
+            dW1 = np.matmul(X.T, ds1)
+            db1 = ds1.sum(axis=0)
+            
+            # azuriramo tezine            
+            model.W1 += - param_delta * dW1
+            model.b1 += - param_delta * db1
+            model.W2 += - param_delta * dW2
+            model.b2 += - param_delta * db2
+            
+    def classify(model, X):
+        return np.argmax(model.forward(X), axis=1)        
 
-model = FCANN2(2, 5, 3)
-model.train([[1,1],[2,2],[3,3]],[0,1,2], 1, 0.1)
+def softmax(X):
+    exp = np.exp(X)
+    exp_sum = np.sum(exp, axis=1)[:,np.newaxis]
+    return exp / exp_sum
+        
+np.random.seed(100)
+X, Y_ = data.sample_gmm_2d(6, 2, 10)
+model = FCANN2(2, 5, 2)
+model.train(X,Y_, 10000, 0.1)
+
+probs = model.forward(X)
+
+# ispiši performansu (preciznost i odziv po razredima)
+accuracy, recall, precision = data.eval_perf_binary(np.argmax(probs, axis=1), Y_)
+print("Accuracy: ", accuracy, "Precision: ", precision, "Recall: ", recall)
+
+# iscrtaj rezultate, decizijsku plohu
+rect= (np.min(X, axis=0), np.max(X, axis=0))
+data.graph_surface(lambda X: model.classify(X), rect)
+data.graph_data(X, Y_, np.argmax(probs, axis=1))
+plt.show()
+
+
