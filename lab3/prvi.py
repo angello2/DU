@@ -71,6 +71,7 @@ class Vocab():
     
 class NLPDataset(torch.utils.data.Dataset):
     def __init__(self, csv_path, vocab_input, vocab_labels):
+        super().__init__()
         file = open(csv_path)
         instances = list()
         for line in file.readlines():
@@ -138,19 +139,5 @@ def get_frequencies(path):
 def pad_collate_fn(batch, pad_index=0):
     data, labels = zip(*batch)
     return pad_sequence(data, batch_first=True, padding_value=pad_index), torch.cat(labels, 0), torch.tensor([len(element) for element in data])
-    
-freq_data, freq_label = get_frequencies('data/sst_train_raw.csv')
-vocab_data = Vocab(freq_data, max_size = -1, min_freq = 1)
-vocab_labels = Vocab(freq_label, use_extra=False)
-embedding_matrix = get_embedding_matrix(vocab_data, 'data/sst_glove_6b_300d.txt', 300)
-dataset = NLPDataset('data/sst_train_raw.csv', vocab_data, vocab_labels)
 
-batch_size = 2 # Only for demonstrative purposes
-shuffle = False # Only for demonstrative purposes
-train_data_loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=batch_size, 
-                              shuffle=shuffle, collate_fn=pad_collate_fn)
-texts, labels, lengths = next(iter(train_data_loader))
-print(f"Texts: {texts}")
-print(f"Labels: {labels}")
-print(f"Lengths: {lengths}")
         
