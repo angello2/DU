@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Thu May 12 15:01:45 2022
+
+@author: Filip
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Sun May  8 15:24:03 2022
 
 @author: Filip
@@ -11,8 +18,8 @@ import numpy as np
 
 from sklearn.metrics import confusion_matrix
 
-class MyModel(torch.nn.Module):
-    def __init__(self, embedding_matrix, text_vocab, label_vocab, dropout=0.):
+class CustomRNNModel(torch.nn.Module):
+    def __init__(self, embedding_matrix, text_vocab, label_vocab, net_type='RNN', hidden_size=150, num_layers=2, dropout=0., bidirectional=False):
         super().__init__()
         self.loss = torch.nn.BCEWithLogitsLoss()
         self.embedding = torch.nn.Embedding.from_pretrained(embedding_matrix) 
@@ -20,13 +27,20 @@ class MyModel(torch.nn.Module):
         self.label_vocab = label_vocab
         self.params = list()
         layers = list()
-        rnn1 = torch.nn.RNN(300, 150, 2, dropout=dropout)
+        if net_type=='RNN':
+            rnn1 = torch.nn.RNN(300, hidden_size, num_layers, dropout=dropout, bidirectional=bidirectional).cuda()
+            rnn2 = torch.nn.RNN(hidden_size, hidden_size, num_layers, dropout=dropout).cuda()
+        elif net_type=='GRU':
+            rnn1 = torch.nn.GRU(300, hidden_size, num_layers, dropout=dropout).cuda()
+            rnn2 = torch.nn.GRU(hidden_size, hidden_size, num_layers, dropout=dropout).cuda()
+        elif net_type=='LSTM':
+            rnn1 = torch.nn.LSTM(300, hidden_size, num_layers, dropout=dropout).cuda()
+            rnn2 = torch.nn.LSTM(hidden_size, hidden_size, num_layers, dropout=dropout).cuda()
         layers.append(rnn1)
-        rnn2 = torch.nn.RNN(150, 150, 2, dropout=dropout)
         layers.append(rnn2)
-        linear1 = torch.nn.Linear(150, 150)
+        linear1 = torch.nn.Linear(hidden_size, hidden_size).cuda()
         layers.append(linear1)
-        linear2 = torch.nn.Linear(150, 1)
+        linear2 = torch.nn.Linear(hidden_size, 1).cuda()
         layers.append(linear2)
         self.layers = layers
         for layer in self.layers:
@@ -38,8 +52,8 @@ class MyModel(torch.nn.Module):
             dl = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, 
                                           shuffle=True, collate_fn=prvi.pad_collate_fn)
             for batch in dl:
-                texts = batch[0]
-                labels = batch[1].float()
+                texts = batch[0].cuda()
+                labels = batch[1].float().cuda()
                 y = self.forward(texts)
                 loss = self.loss(y, labels)
                 loss.backward()
@@ -47,7 +61,8 @@ class MyModel(torch.nn.Module):
                 optimizer.step()
                 optimizer.zero_grad()
             self.evaluate(valid_dataset, verbose, epoch)    
-        self.evaluate(test_dataset, verbose, 0)            
+        accuracy = self.evaluate(test_dataset, verbose, 0)
+        return accuracy            
             
     def forward(self, x):
         y = self.embedding(x)
@@ -70,21 +85,26 @@ class MyModel(torch.nn.Module):
             labels = list()
             losses = list()
             for batch in dl:
-                text = batch[0]
-                label = batch[1].float()
+                text = batch[0].cuda()
+                label = batch[1].float().cuda()
                 y = self.forward(text)
                 y = torch.sigmoid(y).round().int()
                 preds.extend(y)
                 labels.extend(label)
                 losses.append(self.loss(y.float(), label)) 
                 
+            labels = torch.tensor(labels, device = 'cpu')
+            preds = torch.tensor(preds, device = 'cpu')
             confusion = confusion_matrix(labels, preds)
             tn, fp, fn, tp = confusion.ravel()
-            accuracy = (tp + tn) / (tp + tn + fp + fn)
-            precision = tp / (tp + fp)
-            recall = tp / (tp + fn)
+            if tp + fp != 0 and tp + fn != 0:
+                accuracy = (tp + tn) / (tp + tn + fp + fn)
+                precision = tp / (tp + fp)
+                recall = tp / (tp + fn)
+            else:
+                return 0
             f1 = 2 * (precision * recall) / (precision + recall)
-            loss = np.mean(losses)
+            loss = torch.mean(torch.tensor(losses))
             if verbose:
                 if epoch == 0:
                     print('Results on test dataset:')
@@ -96,3 +116,4 @@ class MyModel(torch.nn.Module):
                 print('Loss:', loss)
                 print('Confusion matrix:\n', confusion)
                 print()
+        return accuracy

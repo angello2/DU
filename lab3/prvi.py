@@ -93,15 +93,16 @@ class NLPDataset(torch.utils.data.Dataset):
         return len(self.instances)
     
         
-def get_embedding_matrix(vocab, path, n):
+def get_embedding_matrix(vocab, n, path=None):
     embedding_dict = {}
-    file = open(path)
-    for line in file.readlines():
-        parts = line.replace('\n', '').split(' ')
-        token = parts[0]
-        values = parts[1:]
-        values_vector = torch.tensor([float(x) for x in values])
-        embedding_dict[token] = values_vector
+    if path is not None:
+        file = open(path)
+        for line in file.readlines():
+            parts = line.replace('\n', '').split(' ')
+            token = parts[0]
+            values = parts[1:]
+            values_vector = torch.tensor([float(x) for x in values])
+            embedding_dict[token] = values_vector
         
     embedding_matrix = torch.randn((len(vocab.stoi.items()), n))
     i = 0
@@ -111,7 +112,10 @@ def get_embedding_matrix(vocab, path, n):
         elif token == '<UNK>':
             embedding_matrix[i] = torch.ones(n)
         elif token in embedding_dict:
-            embedding_matrix[i] = embedding_dict[token]
+            if path is not None:
+                embedding_matrix[i] = embedding_dict[token]
+            else:
+                embedding_matrix[i] = torch.rand(n)
         i += 1
             
     return embedding_matrix    
@@ -139,5 +143,3 @@ def get_frequencies(path):
 def pad_collate_fn(batch, pad_index=0):
     data, labels = zip(*batch)
     return pad_sequence(data, batch_first=True, padding_value=pad_index), torch.cat(labels, 0), torch.tensor([len(element) for element in data])
-
-        

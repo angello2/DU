@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 
 class BaselineModel(torch.nn.Module):
-    def __init__(self, embedding_matrix, freeze_embedding=True):
+    def __init__(self, embedding_matrix):
         super().__init__()
         
         layers = list()
@@ -23,7 +23,7 @@ class BaselineModel(torch.nn.Module):
             torch.nn.init.zeros_(layer.bias)
         self.layers = layers
         self.loss = torch.nn.BCEWithLogitsLoss()
-        self.embedding = torch.nn.Embedding.from_pretrained(embedding_matrix, freeze=True, padding_idx=0)
+        self.embedding = torch.nn.Embedding.from_pretrained(embedding_matrix, freeze=False, padding_idx=0)
     def get_params(self):
         parameters = list()
         for layer in self.layers:
@@ -78,9 +78,12 @@ class BaselineModel(torch.nn.Module):
             
             confusion = confusion_matrix(labels, preds)
             tn, fp, fn, tp = confusion.ravel()
-            accuracy = (tp + tn) / (tp + tn + fp + fn)
-            precision = tp / (tp + fp)
-            recall = tp / (tp + fn)
+            if tp + fp != 0 and tp + fn != 0:
+                accuracy = (tp + tn) / (tp + tn + fp + fn)
+                precision = tp / (tp + fp)
+                recall = tp / (tp + fn)
+            else:
+                return 0
             f1 = 2 * (precision * recall) / (precision + recall)
             loss = np.mean(losses)
             if verbose:
